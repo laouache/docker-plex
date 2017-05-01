@@ -2,7 +2,8 @@ FROM ubuntu:16.04
 MAINTAINER Tim Haak <tim@haak.co>
 
 ENV DEBIAN_FRONTEND="noninteractive" \
-    TERM="xterm"
+    TERM="xterm" \
+    PLEX_TYPE_FLAG="-p"
 
 RUN echo "force-unsafe-io" > /etc/dpkg/dpkg.cfg.d/02apt-speedup &&\
     echo "Acquire::http {No-Cache=True;};" > /etc/apt/apt.conf.d/no-cache && \
@@ -11,15 +12,28 @@ RUN echo "force-unsafe-io" > /etc/dpkg/dpkg.cfg.d/02apt-speedup &&\
     apt-get install -qy \
       iproute2 \
       ca-certificates \
+      ffmpeg \
+      git \
+      jq \
       openssl \
       xmlstarlet \
       curl \
       sudo \
+      wget \
     && \
-    echo "deb http://shell.ninthgate.se/packages/debian wheezy main" > /etc/apt/sources.list.d/plexmediaserver.list && \
-    curl http://shell.ninthgate.se/packages/shell.ninthgate.se.gpg.key | apt-key add - && \
-    apt-get -q update && \
-    apt-get install -qy plexmediaserver && \
+    apt-get -y autoremove && \
+    apt-get -y clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /tmp/*
+
+ARG PLEX_PASS='false'
+ARG PLEX_USER_NAME=''
+ARG PLEX_USER_PASS=''
+
+RUN if [ "${PLEX_PASS}" = "true" ]; then PLEX_TYPE_FLAG="--email=${PLEX_USER_NAME} --pass=${PLEX_USER_PASS}" ; fi && \
+    git clone --depth 1 https://github.com/mrworf/plexupdate.git /plexupdate && \
+    /plexupdate/plexupdate.sh ${PLEX_TYPE_FLAG} -a -d  && \
+    apt-get -y purge git &&\
     apt-get -y autoremove && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/* && \
@@ -33,9 +47,9 @@ ENV RUN_AS_ROOT="true" \
     HOME="/config" \
     PLEX_DISABLE_SECURITY=1
 
-EXPOSE 32400
+EXPOSE 32400 1900/udp 3005 5353/udp 8324 32410/udp 32412/udp 32413/udp 32414/udp 32469 
 
-ADD ./Preferences.xml /Preferences.xml
-ADD ./start.sh /start.sh
+COPY ./Preferences.xml /Preferences.xml
+COPY ./start.sh /start.sh
 
 CMD ["/start.sh"]
